@@ -16,6 +16,8 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.text.DateFormat
+import java.util.Date
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
@@ -32,6 +34,7 @@ class MainActivity : Activity() {
 
     private var currentDownload: DownloadedApkm? = null
     private var currentStatus: UpdateStatus? = null
+    private var wasMissingInstallPermission = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,8 +43,9 @@ class MainActivity : Activity() {
         buildUi()
         if (InstallCoordinator(this).canRequestPackageInstalls()) {
             maybeRequestNotificationPermission()
-            checkForUpdates()
+            renderCachedState()
         } else {
+            wasMissingInstallPermission = true
             renderInstallPermissionRequired()
         }
     }
@@ -50,11 +54,13 @@ class MainActivity : Activity() {
         super.onResume()
         if (maybeContinueAfterUninstall()) return
         if (!InstallCoordinator(this).canRequestPackageInstalls()) {
+            wasMissingInstallPermission = true
             renderInstallPermissionRequired()
             return
         }
         maybeRequestNotificationPermission()
-        if (currentStatus == null && currentDownload == null) {
+        if (wasMissingInstallPermission) {
+            wasMissingInstallPermission = false
             checkForUpdates()
             return
         }
@@ -215,7 +221,7 @@ class MainActivity : Activity() {
         when (status) {
             null -> {
                 statusText.text = "Ready"
-                detailText.text = "Open the app to check the latest patched release."
+                detailText.text = "Press Check now when you want to refresh the latest patched release."
             }
 
             is UpdateStatus.UpdateAvailable -> {
@@ -269,6 +275,24 @@ class MainActivity : Activity() {
         checkButton.isEnabled = true
         statusText.text = "Install permission needed"
         detailText.text = "Allow this app to install APKs, then return here to check F1 TV."
+        renderButtons()
+    }
+
+    private fun renderCachedState() {
+        val repository = UpdateRepository(this)
+        val title = repository.lastReleaseTitle
+        val checkedAt = repository.lastCheckedAt
+        currentStatus = null
+        progress.visibility = View.GONE
+        checkButton.isEnabled = true
+
+        if (title == null || checkedAt == 0L) {
+            statusText.text = "Ready"
+            detailText.text = "Press Check now to look for the latest patched F1 TV release."
+        } else {
+            statusText.text = "Last check: $title"
+            detailText.text = "Checked ${DateFormat.getDateTimeInstance().format(Date(checkedAt))}. Press Check now to refresh."
+        }
         renderButtons()
     }
 
