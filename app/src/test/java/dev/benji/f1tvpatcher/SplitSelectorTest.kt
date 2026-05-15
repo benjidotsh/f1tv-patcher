@@ -9,6 +9,7 @@ class SplitSelectorTest {
     fun selectsBaseAbiLanguageAndDensitySplits() {
         val files = listOf(
             "base.apk",
+            "split_required_player.apk",
             "config.arm64_v8a.apk",
             "config.armeabi_v7a.apk",
             "config.en.apk",
@@ -27,7 +28,13 @@ class SplitSelectorTest {
         )
 
         assertEquals(
-            listOf("base.apk", "config.arm64_v8a.apk", "config.fr.apk", "config.xhdpi.apk"),
+            listOf(
+                "base.apk",
+                "split_required_player.apk",
+                "config.arm64_v8a.apk",
+                "config.fr.apk",
+                "config.xhdpi.apk",
+            ),
             selected.map { it.name },
         )
     }

@@ -24,6 +24,8 @@ object SplitSelector {
         val apks = files.filter { it.extension.equals("apk", ignoreCase = true) }
         val selected = linkedSetOf<File>()
         apks.firstOrNull { it.name.equals("base.apk", ignoreCase = true) }?.let(selected::add)
+        apks.filter { file -> !file.name.equals("base.apk", ignoreCase = true) && !file.isConfigSplit() }
+            .forEach(selected::add)
 
         findAbiSplit(apks, profile.supportedAbis)?.let(selected::add)
         findLanguageSplit(apks, profile.language)?.let(selected::add)
@@ -53,4 +55,8 @@ object SplitSelector {
         val target = densities.minBy { (_, dpi) -> abs(dpi - densityDpi) }.first
         return files.firstOrNull { file -> file.name.contains(target, ignoreCase = true) }
     }
+
+    private fun File.isConfigSplit(): Boolean =
+        name.contains("config.", ignoreCase = true) ||
+            name.contains("config_", ignoreCase = true)
 }

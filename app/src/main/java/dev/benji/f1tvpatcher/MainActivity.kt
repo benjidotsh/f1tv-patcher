@@ -37,14 +37,27 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         NotificationHelper(this).ensureChannel()
         WeeklyUpdateScheduler.schedule(this)
-        maybeRequestNotificationPermission()
         buildUi()
-        checkForUpdates()
+        if (InstallCoordinator(this).canRequestPackageInstalls()) {
+            maybeRequestNotificationPermission()
+            checkForUpdates()
+        } else {
+            renderInstallPermissionRequired()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         if (maybeContinueAfterUninstall()) return
+        if (!InstallCoordinator(this).canRequestPackageInstalls()) {
+            renderInstallPermissionRequired()
+            return
+        }
+        maybeRequestNotificationPermission()
+        if (currentStatus == null && currentDownload == null) {
+            checkForUpdates()
+            return
+        }
         render(currentStatus)
     }
 
@@ -92,7 +105,7 @@ class MainActivity : Activity() {
         checkButton = tvButton("Check now") { checkForUpdates() }
         installButton = tvButton("Install patch") { installPatch() }
         uninstallButton = tvButton("Uninstall F1 TV") { uninstallOriginal() }
-        settingsButton = tvButton("Allow installs") {
+        settingsButton = tvButton("Allow APK installs") {
             InstallCoordinator(this).openUnknownSourcesSettings()
         }
         row.addView(checkButton)
@@ -143,9 +156,7 @@ class MainActivity : Activity() {
         val downloaded = currentDownload ?: return checkForUpdates()
         val coordinator = InstallCoordinator(this)
         if (!coordinator.canRequestPackageInstalls()) {
-            statusText.text = "Install permission needed"
-            detailText.text = "Allow this app to install unknown apps, then return here."
-            settingsButton.visibility = View.VISIBLE
+            renderInstallPermissionRequired()
             coordinator.openUnknownSourcesSettings()
             return
         }
@@ -237,15 +248,28 @@ class MainActivity : Activity() {
     }
 
     private fun renderButtons() {
-        checkButton.visibility = View.VISIBLE
-        settingsButton.visibility = if (InstallCoordinator(this).canRequestPackageInstalls()) {
-            View.GONE
-        } else {
-            View.VISIBLE
+        if (!InstallCoordinator(this).canRequestPackageInstalls()) {
+            checkButton.visibility = View.GONE
+            installButton.visibility = View.GONE
+            uninstallButton.visibility = View.GONE
+            settingsButton.visibility = View.VISIBLE
+            return
         }
+
+        checkButton.visibility = View.VISIBLE
+        settingsButton.visibility = View.GONE
         installButton.visibility = if (currentStatus is UpdateStatus.UpdateAvailable) View.VISIBLE else View.GONE
         uninstallButton.visibility =
             if (currentStatus is UpdateStatus.OriginalOrUnknownInstalled) View.VISIBLE else View.GONE
+    }
+
+    private fun renderInstallPermissionRequired() {
+        progress.visibility = View.GONE
+        currentStatus = null
+        checkButton.isEnabled = true
+        statusText.text = "Install permission needed"
+        detailText.text = "Allow this app to install APKs, then return here to check F1 TV."
+        renderButtons()
     }
 
     private fun renderError(throwable: Throwable) {
