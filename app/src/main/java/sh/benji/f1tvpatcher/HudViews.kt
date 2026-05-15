@@ -55,7 +55,7 @@ object HudTypeface {
 class HudBackgroundDrawable : Drawable() {
     private val bgPaint = Paint().apply { color = HudPalette.bg }
     private val gridPaint = Paint().apply {
-        color = 0x14FFFFFF
+        color = HudPalette.keyResting
         strokeWidth = 1f
     }
     private val scanPaint = Paint().apply { color = 0x09FFFFFF }
@@ -141,12 +141,7 @@ class HudStatusDot @JvmOverloads constructor(
     }
 }
 
-fun hudKeyButton(
-    context: Context,
-    label: String,
-    primary: Boolean,
-    compact: Boolean = false,
-): Button {
+fun hudKeyButton(context: Context, label: String, primary: Boolean): Button {
     val bg = focusStateListDrawable { focused ->
         GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -169,7 +164,7 @@ fun hudKeyButton(
     }
 
     return Button(context).apply {
-        text = if (compact) "[$label]" else "[ $label ]"
+        text = label
         background = bg
         typeface = HudTypeface.mono
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
@@ -177,8 +172,7 @@ fun hudKeyButton(
         letterSpacing = 0.12f
         setTextColor(if (primary) Color.WHITE else HudPalette.keyText)
         stateListAnimator = null
-        val horizontalPadding = context.dp(if (compact) 12 else 20)
-        setPadding(horizontalPadding, context.dp(13), horizontalPadding, context.dp(13))
+        setPadding(context.dp(20), context.dp(13), context.dp(20), context.dp(13))
         if (primary) elevation = context.dp(4).toFloat()
         minWidth = 0
         minHeight = 0

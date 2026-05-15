@@ -6,6 +6,9 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.DigestOutputStream
 import java.security.MessageDigest
 
 class GithubHttpException(
@@ -83,8 +86,7 @@ class ReleaseSource(private val context: Context) {
 
     fun download(release: ReleaseInfo): File {
         val releasesDir = File(context.cacheDir, "releases").apply { mkdirs() }
-        val safeTag = release.tagName.replace(Regex("[^A-Za-z0-9._-]"), "_")
-        val target = File(releasesDir, "$safeTag-${release.asset.name}")
+        val target = File(releasesDir, "${release.tagName.safeFileName()}-${release.asset.name}")
         if (target.isFile &&
             (release.asset.size <= 0L || target.length() == release.asset.size) &&
             target.matchesDigest(release.asset.digest)
@@ -93,30 +95,38 @@ class ReleaseSource(private val context: Context) {
         }
 
         val temp = File(target.parentFile, "${target.name}.tmp")
-        URL(release.asset.downloadUrl).openConnection().let { connection ->
-            (connection as HttpURLConnection).apply {
-                requestMethod = "GET"
-                setRequestProperty("User-Agent", "F1-TV-Patcher")
-                connectTimeout = 15_000
-                readTimeout = 60_000
-            }.inputStream.use { input ->
-                temp.outputStream().use { output -> input.copyTo(output) }
+        val expected = parseSha256Digest(release.asset.digest)
+        val md = expected?.let { MessageDigest.getInstance("SHA-256") }
+        (URL(release.asset.downloadUrl).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            setRequestProperty("User-Agent", "F1-TV-Patcher")
+            connectTimeout = 15_000
+            readTimeout = 60_000
+        }.inputStream.use { input ->
+            val raw = temp.outputStream()
+            val out = if (md != null) DigestOutputStream(raw, md) else raw
+            out.use { input.copyTo(it) }
+        }
+        if (md != null) {
+            val actual = md.digest().joinToString("") { "%02x".format(it) }
+            check(actual == expected) {
+                "Downloaded APKM does not match GitHub asset digest"
             }
         }
-        check(temp.matchesDigest(release.asset.digest)) {
-            "Downloaded APKM does not match GitHub asset digest"
-        }
-        if (target.exists()) target.delete()
-        check(temp.renameTo(target)) { "Could not move downloaded APKM into place" }
+        Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         return target
     }
 }
 
-private fun File.matchesDigest(digest: String?): Boolean {
-    if (digest.isNullOrBlank()) return true
+private fun parseSha256Digest(digest: String?): String? {
+    if (digest.isNullOrBlank()) return null
     val parts = digest.split(":", limit = 2)
-    if (parts.size != 2 || !parts[0].equals("sha256", ignoreCase = true)) return true
-    val expected = parts[1].lowercase()
+    if (parts.size != 2 || !parts[0].equals("sha256", ignoreCase = true)) return null
+    return parts[1].lowercase()
+}
+
+private fun File.matchesDigest(digest: String?): Boolean {
+    val expected = parseSha256Digest(digest) ?: return true
     val actual = inputStream().use { input ->
         val messageDigest = MessageDigest.getInstance("SHA-256")
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)

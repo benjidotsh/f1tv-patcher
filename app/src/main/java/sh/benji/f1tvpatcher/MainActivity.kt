@@ -14,7 +14,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -52,7 +51,6 @@ class MainActivity : Activity() {
     private var isCheckingForUpdates = false
     private var awaitingInstallPermission = false
     private var packageReceiverRegistered = false
-    private var installFailureReceiverRegistered = false
 
     private val packageEventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -79,7 +77,6 @@ class MainActivity : Activity() {
             IntentFilter(Constants.INSTALL_FAILED_ACTION),
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
-        installFailureReceiverRegistered = true
         checkForUpdates()
     }
 
@@ -124,40 +121,27 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (installFailureReceiverRegistered) {
-            unregisterReceiver(installFailureReceiver)
-            installFailureReceiverRegistered = false
-        }
+        unregisterReceiver(installFailureReceiver)
         executor.shutdownNow()
     }
 
-    // ---------------------------------------------------------------------
-    // UI construction
-    // ---------------------------------------------------------------------
-
     private fun buildUi() {
-        val root = FrameLayout(this).apply { background = HudBackgroundDrawable() }
-
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            )
+            background = HudBackgroundDrawable()
         }
         column.addView(buildTopBar())
+        column.addView(horizontalHairline())
         column.addView(
             buildStage(),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f),
         )
+        column.addView(horizontalHairline())
         column.addView(buildKeysSection())
-
-        root.addView(column)
-        setContentView(root)
+        setContentView(column)
     }
 
     private fun buildTopBar(): View {
-        val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -188,10 +172,7 @@ class MainActivity : Activity() {
 
         bar.addView(left)
         bar.addView(topVersionText)
-
-        wrap.addView(bar)
-        wrap.addView(horizontalHairline())
-        return wrap
+        return bar
     }
 
     private fun buildStage(): View {
@@ -239,15 +220,12 @@ class MainActivity : Activity() {
     }
 
     private fun buildKeysSection(): View {
-        val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        wrap.addView(horizontalHairline())
         keysRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(56), dp(22), dp(56), dp(22))
         }
-        wrap.addView(keysRow)
-        return wrap
+        return keysRow
     }
 
     private fun horizontalHairline(): View = View(this).apply {
@@ -460,10 +438,6 @@ class MainActivity : Activity() {
         val onClick: () -> Unit,
     )
 
-    // ---------------------------------------------------------------------
-    // State rendering
-    // ---------------------------------------------------------------------
-
     private fun setBusy(headline: String, sub: String) {
         progress.visibility = View.VISIBLE
         setInstallIndicator(localInstallIndicator())
@@ -488,7 +462,6 @@ class MainActivity : Activity() {
     }
 
     private fun renderUpdateAvailable(status: UpdateStatus.UpdateAvailable) {
-        progress.visibility = View.GONE
         val release = status.release
         val installed = status.installed
         val sizeBytes = currentDownload?.release?.asset?.size ?: release.asset.size
@@ -517,7 +490,6 @@ class MainActivity : Activity() {
     }
 
     private fun renderOriginalDetected(status: UpdateStatus.OriginalOrUnknownInstalled) {
-        progress.visibility = View.GONE
         val release = status.release
         val installed = status.installed
 
@@ -545,7 +517,6 @@ class MainActivity : Activity() {
     }
 
     private fun renderPatchedCurrent(status: UpdateStatus.PatchedCurrent) {
-        progress.visibility = View.GONE
         val release = status.release
 
         setInstallIndicator(InstallIndicator.Patched)
@@ -565,7 +536,6 @@ class MainActivity : Activity() {
     }
 
     private fun renderNotInstalled(status: UpdateStatus.NotInstalled) {
-        progress.visibility = View.GONE
         val release = status.release
 
         setInstallIndicator(InstallIndicator.NotInstalled)
@@ -618,9 +588,9 @@ class MainActivity : Activity() {
         }
 
         statusHeadline.setTextColor(HudPalette.red)
-        statusHeadline.text = "Connection\nerror"
+        statusHeadline.text = "Connection\nfailed"
         statusSub.text =
-            "Couldn't fetch the latest patch. Please make sure you're connected to the internet and try again later."
+            "Please make sure you're connected to the internet and try again later."
 
         setDataRows(
             listOf(
@@ -649,7 +619,7 @@ class MainActivity : Activity() {
 
         setDataRows(
             listOf(
-                DataRow("ERROR", throwable.message ?: throwable.javaClass.simpleName, HudPalette.red),
+                DataRow("REASON", throwable.message ?: throwable.javaClass.simpleName, HudPalette.red),
             ),
         )
 

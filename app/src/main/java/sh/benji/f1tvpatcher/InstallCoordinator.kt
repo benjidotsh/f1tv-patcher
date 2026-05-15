@@ -55,19 +55,3 @@ class InstallCoordinator(private val context: Context) {
         }
     }
 }
-
-private inline fun <T : AutoCloseable, R> T.use(block: (T) -> R): R {
-    var thrown: Throwable? = null
-    try {
-        return block(this)
-    } catch (throwable: Throwable) {
-        thrown = throwable
-        throw throwable
-    } finally {
-        try {
-            close()
-        } catch (closeThrowable: Throwable) {
-            thrown?.addSuppressed(closeThrowable) ?: throw closeThrowable
-        }
-    }
-}
