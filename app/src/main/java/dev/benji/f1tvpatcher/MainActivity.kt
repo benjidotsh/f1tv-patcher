@@ -256,6 +256,24 @@ class MainActivity : Activity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+    private fun formatLastChecked(epoch: Long): String? {
+        if (epoch == 0L) return null
+        val diff = System.currentTimeMillis() - epoch
+        return when {
+            diff < 0 -> "Just now"
+            diff < 60_000 -> "Just now"
+            diff < 3_600_000 -> "${diff / 60_000}m ago"
+            diff < 86_400_000 -> "${diff / 3_600_000}h ago"
+            diff < 604_800_000 -> "${diff / 86_400_000}d ago"
+            else -> SimpleDateFormat("MMM d", Locale.ENGLISH).format(Date(epoch))
+        }
+    }
+
+    private fun lastCheckedRow(): DataRow? {
+        val formatted = formatLastChecked(UpdateRepository(this).lastCheckedAt) ?: return null
+        return DataRow("LAST CHECKED", formatted)
+    }
+
     private fun formatSize(bytes: Long): String {
         if (bytes <= 0) return "—"
         val kb = bytes / 1024.0
@@ -469,10 +487,11 @@ class MainActivity : Activity() {
         statusSub.text = "A new version of the patch is available."
 
         setDataRows(
-            listOf(
+            listOfNotNull(
                 DataRow("CURRENT", shortVersion(installed)),
                 DataRow("LATEST", release.tagName),
                 DataRow("SIZE", formatSize(sizeBytes)),
+                lastCheckedRow(),
             ),
         )
 
@@ -497,9 +516,10 @@ class MainActivity : Activity() {
             "THE ORIGINAL APP NEEDS TO BE UNINSTALLED FIRST. KEEP IN MIND YOU WILL HAVE TO SIGN IN AGAIN."
 
         setDataRows(
-            listOf(
+            listOfNotNull(
                 DataRow("ORIGINAL", shortVersion(installed)),
                 DataRow("PATCH", release.tagName),
+                lastCheckedRow(),
             ),
         )
 
@@ -522,8 +542,9 @@ class MainActivity : Activity() {
         statusSub.text = "You're on the latest version."
 
         setDataRows(
-            listOf(
+            listOfNotNull(
                 DataRow("VERSION", release.tagName),
+                lastCheckedRow(),
             ),
         )
 
@@ -542,9 +563,10 @@ class MainActivity : Activity() {
             "F1 TV IS NOT INSTALLED YET. THIS WILL DIRECTLY INSTALL THE PATCHED BUILD."
 
         setDataRows(
-            listOf(
+            listOfNotNull(
                 DataRow("VERSION", release.tagName),
                 DataRow("SIZE", formatSize(release.asset.size)),
+                lastCheckedRow(),
             ),
         )
 
