@@ -410,6 +410,9 @@ class MainActivity : Activity() {
             "ERROR" to {
                 renderError(RuntimeException("Timeout connecting to api.github.com"))
             },
+            "NOTIFICATION" to {
+                NotificationHelper(this).notifyUpdateAvailable(DebugMocks.release)
+            },
         )
     }
 
