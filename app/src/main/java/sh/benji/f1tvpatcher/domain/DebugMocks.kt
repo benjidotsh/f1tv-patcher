@@ -1,4 +1,4 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.domain
 
 object DebugMocks {
     val release = ReleaseInfo(

@@ -1,5 +1,6 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.domain
 
+import sh.benji.f1tvpatcher.Constants
 import java.io.File
 import kotlin.math.abs
 

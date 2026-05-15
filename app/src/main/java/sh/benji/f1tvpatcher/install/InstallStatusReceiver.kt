@@ -1,4 +1,4 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.install
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.widget.Toast
 import androidx.core.content.IntentCompat
+import sh.benji.f1tvpatcher.Constants
 
 class InstallStatusReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

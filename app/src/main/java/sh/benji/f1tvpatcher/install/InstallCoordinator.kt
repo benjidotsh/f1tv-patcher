@@ -1,4 +1,4 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.install
 
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.provider.Settings
+import sh.benji.f1tvpatcher.Constants
 import java.io.File
 
 class InstallCoordinator(private val context: Context) {

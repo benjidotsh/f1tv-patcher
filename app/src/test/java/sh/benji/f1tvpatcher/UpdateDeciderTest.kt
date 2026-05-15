@@ -2,6 +2,13 @@ package sh.benji.f1tvpatcher
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import sh.benji.f1tvpatcher.domain.ApkMetadata
+import sh.benji.f1tvpatcher.domain.DownloadedApkm
+import sh.benji.f1tvpatcher.domain.InstalledApp
+import sh.benji.f1tvpatcher.domain.ReleaseAsset
+import sh.benji.f1tvpatcher.domain.ReleaseInfo
+import sh.benji.f1tvpatcher.domain.UpdateDecider
+import sh.benji.f1tvpatcher.domain.UpdateStatus
 import java.io.File
 
 class UpdateDeciderTest {

@@ -1,15 +1,24 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.data
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONObject
+import sh.benji.f1tvpatcher.Constants
+import sh.benji.f1tvpatcher.domain.ReleaseAsset
+import sh.benji.f1tvpatcher.domain.ReleaseInfo
+import sh.benji.f1tvpatcher.domain.ReleaseSelector
+import sh.benji.f1tvpatcher.domain.safeFileName
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.DigestOutputStream
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 
 class GithubHttpException(
     val status: Int,
@@ -18,43 +27,35 @@ class GithubHttpException(
 ) : IOException(message)
 
 class ReleaseSource(private val context: Context) {
-    fun fetchLatestRelease(): ReleaseInfo {
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    suspend fun fetchLatestRelease(): ReleaseInfo = withContext(Dispatchers.IO) {
         val repo = UpdateRepository(context)
         val cachedJson = repo.releaseJson
         val cachedEtag = if (cachedJson != null) repo.releaseEtag else null
 
-        val connection = (URL(Constants.RELEASE_API).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            setRequestProperty("Accept", "application/vnd.github+json")
-            setRequestProperty("User-Agent", "F1-TV-Patcher")
-            if (cachedEtag != null) setRequestProperty("If-None-Match", cachedEtag)
-            connectTimeout = 15_000
-            readTimeout = 20_000
-        }
+        val request = Request.Builder()
+            .url(Constants.RELEASE_API)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "F1-TV-Patcher")
+            .apply { if (cachedEtag != null) header("If-None-Match", cachedEtag) }
+            .build()
 
-        val json = try {
-            when (val code = connection.responseCode) {
+        val json = client.newCall(request).execute().use { response ->
+            when (response.code) {
                 200 -> {
-                    val body = connection.inputStream.bufferedReader().use { it.readText() }
-                    repo.saveReleaseCache(connection.getHeaderField("ETag"), body)
+                    val body = response.body?.string()
+                        ?: throw IOException("Empty body from GitHub")
+                    repo.saveReleaseCache(response.header("ETag"), body)
                     body
                 }
                 304 -> cachedJson
                     ?: throw IOException("304 from GitHub but no cached release available")
-                else -> {
-                    val errBody = (connection.errorStream ?: connection.inputStream)
-                        ?.bufferedReader()?.use { it.readText() } ?: ""
-                    val parsed = runCatching { JSONObject(errBody).optString("message") }
-                        .getOrNull()?.ifBlank { null }
-                        ?.substringBefore(" (")
-                    val display = parsed
-                        ?: errBody.take(240).ifBlank { connection.responseMessage ?: "HTTP $code" }
-                    val reset = connection.getHeaderField("X-RateLimit-Reset")?.toLongOrNull()
-                    throw GithubHttpException(code, reset, display)
-                }
+                else -> throw response.toGithubError()
             }
-        } finally {
-            connection.disconnect()
         }
 
         val root = JSONObject(json)
@@ -76,7 +77,7 @@ class ReleaseSource(private val context: Context) {
         val selected = ReleaseSelector.selectApkmAsset(assets)
             ?: error("Latest release does not contain a .apkm asset")
 
-        return ReleaseInfo(
+        ReleaseInfo(
             tagName = root.getString("tag_name"),
             title = root.optString("name").ifBlank { root.getString("tag_name") },
             publishedAt = root.optString("published_at").ifBlank { null },
@@ -84,29 +85,36 @@ class ReleaseSource(private val context: Context) {
         )
     }
 
-    fun download(release: ReleaseInfo): File {
+    suspend fun download(release: ReleaseInfo): File = withContext(Dispatchers.IO) {
         val releasesDir = File(context.cacheDir, "releases").apply { mkdirs() }
         val target = File(releasesDir, "${release.tagName.safeFileName()}-${release.asset.name}")
         if (target.isFile &&
             (release.asset.size <= 0L || target.length() == release.asset.size) &&
             target.matchesDigest(release.asset.digest)
         ) {
-            return target
+            return@withContext target
         }
 
         val temp = File(target.parentFile, "${target.name}.tmp")
         val expected = parseSha256Digest(release.asset.digest)
         val md = expected?.let { MessageDigest.getInstance("SHA-256") }
-        (URL(release.asset.downloadUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            setRequestProperty("User-Agent", "F1-TV-Patcher")
-            connectTimeout = 15_000
-            readTimeout = 60_000
-        }.inputStream.use { input ->
-            val raw = temp.outputStream()
-            val out = if (md != null) DigestOutputStream(raw, md) else raw
-            out.use { input.copyTo(it) }
+
+        val request = Request.Builder()
+            .url(release.asset.downloadUrl)
+            .header("User-Agent", "F1-TV-Patcher")
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw response.toGithubError()
+            val source = response.body?.byteStream()
+                ?: throw IOException("Empty body when downloading ${release.asset.name}")
+            source.use { input ->
+                val raw = temp.outputStream()
+                val out = if (md != null) DigestOutputStream(raw, md) else raw
+                out.use { input.copyTo(it) }
+            }
         }
+
         if (md != null) {
             val actual = md.digest().joinToString("") { "%02x".format(it) }
             check(actual == expected) {
@@ -114,8 +122,19 @@ class ReleaseSource(private val context: Context) {
             }
         }
         Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        return target
+        target
     }
+}
+
+private fun Response.toGithubError(): GithubHttpException {
+    val errBody = runCatching { body?.string().orEmpty() }.getOrDefault("")
+    val parsed = runCatching { JSONObject(errBody).optString("message") }
+        .getOrNull()?.ifBlank { null }
+        ?.substringBefore(" (")
+    val display = parsed
+        ?: errBody.take(240).ifBlank { message.ifBlank { "HTTP $code" } }
+    val reset = header("X-RateLimit-Reset")?.toLongOrNull()
+    return GithubHttpException(code, reset, display)
 }
 
 private fun parseSha256Digest(digest: String?): String? {

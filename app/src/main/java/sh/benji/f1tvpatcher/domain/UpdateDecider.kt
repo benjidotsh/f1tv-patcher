@@ -1,4 +1,6 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.domain
+
+import sh.benji.f1tvpatcher.Constants
 
 object UpdateDecider {
     fun decide(installed: InstalledApp?, downloaded: DownloadedApkm): UpdateStatus {

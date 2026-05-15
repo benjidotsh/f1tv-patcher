@@ -1,4 +1,4 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.domain
 
 object ReleaseSelector {
     fun selectApkmAsset(assets: List<ReleaseAsset>): ReleaseAsset? =

@@ -1,7 +1,8 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.data
 
 import android.content.Context
 import androidx.core.content.edit
+import sh.benji.f1tvpatcher.domain.ReleaseInfo
 
 private const val KEY_LAST_RELEASE_TAG = "lastReleaseTag"
 private const val KEY_LAST_RELEASE_TITLE = "lastReleaseTitle"

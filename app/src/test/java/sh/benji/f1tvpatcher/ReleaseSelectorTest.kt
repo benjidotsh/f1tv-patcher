@@ -3,6 +3,8 @@ package sh.benji.f1tvpatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import sh.benji.f1tvpatcher.domain.ReleaseAsset
+import sh.benji.f1tvpatcher.domain.ReleaseSelector
 
 class ReleaseSelectorTest {
     @Test

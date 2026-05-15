@@ -2,6 +2,8 @@ package sh.benji.f1tvpatcher
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import sh.benji.f1tvpatcher.domain.DeviceProfile
+import sh.benji.f1tvpatcher.domain.SplitSelector
 import java.io.File
 
 class SplitSelectorTest {

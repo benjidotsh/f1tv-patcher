@@ -1,7 +1,13 @@
-package sh.benji.f1tvpatcher
+package sh.benji.f1tvpatcher.data
 
 import android.content.Context
 import androidx.core.content.pm.PackageInfoCompat
+import sh.benji.f1tvpatcher.domain.ApkMetadata
+import sh.benji.f1tvpatcher.domain.DownloadedApkm
+import sh.benji.f1tvpatcher.domain.ReleaseInfo
+import sh.benji.f1tvpatcher.domain.SIGNING_FLAGS
+import sh.benji.f1tvpatcher.domain.Signer
+import sh.benji.f1tvpatcher.domain.safeFileName
 import java.io.File
 import java.util.zip.ZipFile
 
