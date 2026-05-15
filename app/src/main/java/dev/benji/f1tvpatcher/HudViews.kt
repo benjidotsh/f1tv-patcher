@@ -35,7 +35,17 @@ object HudPalette {
     const val keyResting = 0x14FFFFFF
     const val keyFocused = 0x26FFFFFF
     const val keyBorder = 0xFF2A2A30.toInt()
+    const val keyText = 0xFFC8C8C8.toInt()
 }
+
+fun Context.dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+private fun focusStateListDrawable(makeBg: (Boolean) -> GradientDrawable): StateListDrawable =
+    StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_focused), makeBg(true))
+        addState(intArrayOf(android.R.attr.state_pressed), makeBg(true))
+        addState(intArrayOf(), makeBg(false))
+    }
 
 object HudTypeface {
     val mono: Typeface = Typeface.MONOSPACE
@@ -133,32 +143,25 @@ fun hudKeyButton(
     primary: Boolean,
     compact: Boolean = false,
 ): Button {
-    val density = context.resources.displayMetrics.density
-    fun dp(v: Int) = (v * density).toInt()
-
-    fun makeBg(focused: Boolean): GradientDrawable = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        setColor(
-            when {
-                primary -> HudPalette.red
-                focused -> HudPalette.keyFocused
-                else -> HudPalette.keyResting
-            }
-        )
-        setStroke(
-            dp(if (focused || primary) 2 else 1),
-            when {
-                primary -> if (focused) Color.WHITE else HudPalette.red
-                focused -> Color.WHITE
-                else -> HudPalette.keyBorder
-            }
-        )
-    }
-
-    val bg = StateListDrawable().apply {
-        addState(intArrayOf(android.R.attr.state_focused), makeBg(true))
-        addState(intArrayOf(android.R.attr.state_pressed), makeBg(true))
-        addState(intArrayOf(), makeBg(false))
+    val bg = focusStateListDrawable { focused ->
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(
+                when {
+                    primary -> HudPalette.red
+                    focused -> HudPalette.keyFocused
+                    else -> HudPalette.keyResting
+                }
+            )
+            setStroke(
+                context.dp(if (focused || primary) 2 else 1),
+                when {
+                    primary -> if (focused) Color.WHITE else HudPalette.red
+                    focused -> Color.WHITE
+                    else -> HudPalette.keyBorder
+                }
+            )
+        }
     }
 
     return Button(context).apply {
@@ -168,42 +171,35 @@ fun hudKeyButton(
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         isAllCaps = true
         letterSpacing = 0.12f
-        setTextColor(if (primary) Color.WHITE else 0xFFC8C8C8.toInt())
+        setTextColor(if (primary) Color.WHITE else HudPalette.keyText)
         stateListAnimator = null
-        val horizontalPadding = if (compact) dp(12) else dp(20)
-        setPadding(horizontalPadding, dp(13), horizontalPadding, dp(13))
-        if (primary) elevation = dp(4).toFloat()
+        val horizontalPadding = context.dp(if (compact) 12 else 20)
+        setPadding(horizontalPadding, context.dp(13), horizontalPadding, context.dp(13))
+        if (primary) elevation = context.dp(4).toFloat()
         minWidth = 0
         minHeight = 0
     }
 }
 
 fun hudIconButton(context: Context, @DrawableRes drawableRes: Int): ImageButton {
-    val density = context.resources.displayMetrics.density
-    fun dp(v: Int) = (v * density).toInt()
-
-    fun makeBg(focused: Boolean): GradientDrawable = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        setColor(if (focused) HudPalette.keyFocused else HudPalette.keyResting)
-        setStroke(
-            dp(if (focused) 2 else 1),
-            if (focused) Color.WHITE else HudPalette.keyBorder,
-        )
-    }
-
-    val bg = StateListDrawable().apply {
-        addState(intArrayOf(android.R.attr.state_focused), makeBg(true))
-        addState(intArrayOf(android.R.attr.state_pressed), makeBg(true))
-        addState(intArrayOf(), makeBg(false))
+    val bg = focusStateListDrawable { focused ->
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(if (focused) HudPalette.keyFocused else HudPalette.keyResting)
+            setStroke(
+                context.dp(if (focused) 2 else 1),
+                if (focused) Color.WHITE else HudPalette.keyBorder,
+            )
+        }
     }
 
     return ImageButton(context).apply {
         background = bg
         setImageResource(drawableRes)
-        imageTintList = ColorStateList.valueOf(0xFFC8C8C8.toInt())
+        imageTintList = ColorStateList.valueOf(HudPalette.keyText)
         scaleType = ImageView.ScaleType.CENTER_INSIDE
         stateListAnimator = null
-        setPadding(dp(12), dp(10), dp(12), dp(10))
+        setPadding(context.dp(12), context.dp(10), context.dp(12), context.dp(10))
         minimumWidth = 0
         minimumHeight = 0
     }

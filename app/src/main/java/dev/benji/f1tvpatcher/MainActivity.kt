@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.format.Formatter
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -58,11 +59,7 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val pkg = intent?.data?.schemeSpecificPart ?: return
             if (pkg != Constants.TARGET_PACKAGE) return
-            val download = currentDownload ?: return
-            val installed = InstalledAppInspector(this@MainActivity).inspect()
-            val status = UpdateDecider.decide(installed, download)
-            currentStatus = status
-            render(status)
+            refreshStatusFromCurrentDownload()?.let { render(it) }
         }
     }
 
@@ -92,11 +89,7 @@ class MainActivity : Activity() {
             packageReceiverRegistered = true
         }
         maybeRequestNotificationPermission()
-        val download = currentDownload
-        if (download != null) {
-            val installed = InstalledAppInspector(this).inspect()
-            currentStatus = UpdateDecider.decide(installed, download)
-        }
+        refreshStatusFromCurrentDownload()
         if (awaitingInstallPermission) {
             awaitingInstallPermission = false
             if (InstallCoordinator(this).canRequestPackageInstalls()) {
@@ -254,13 +247,10 @@ class MainActivity : Activity() {
         text = initial
     }
 
-    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
-
     private fun formatLastChecked(epoch: Long): String? {
         if (epoch == 0L) return null
         val diff = System.currentTimeMillis() - epoch
         return when {
-            diff < 0 -> "Just now"
             diff < 60_000 -> "Just now"
             diff < 3_600_000 -> "${diff / 60_000}m ago"
             diff < 86_400_000 -> "${diff / 3_600_000}h ago"
@@ -274,13 +264,15 @@ class MainActivity : Activity() {
         return DataRow("LAST CHECKED", formatted)
     }
 
-    private fun formatSize(bytes: Long): String {
-        if (bytes <= 0) return "—"
-        val kb = bytes / 1024.0
-        if (kb < 1024) return String.format(Locale.ENGLISH, "%.1f KB", kb)
-        val mb = kb / 1024.0
-        if (mb < 1024) return String.format(Locale.ENGLISH, "%.1f MB", mb)
-        return String.format(Locale.ENGLISH, "%.2f GB", mb / 1024.0)
+    private fun formatSize(bytes: Long): String =
+        if (bytes <= 0) "—" else Formatter.formatShortFileSize(this, bytes)
+
+    private fun refreshStatusFromCurrentDownload(): UpdateStatus? {
+        val download = currentDownload ?: return null
+        val installed = InstalledAppInspector(this).inspect()
+        val status = UpdateDecider.decide(installed, download)
+        currentStatus = status
+        return status
     }
 
     private fun setInstallIndicator(state: InstallIndicator) {
@@ -626,10 +618,6 @@ class MainActivity : Activity() {
 
     private fun shortVersion(installed: InstalledApp): String =
         installed.versionName ?: "v${installed.versionCode}"
-
-    // ---------------------------------------------------------------------
-    // Business logic (unchanged from previous implementation)
-    // ---------------------------------------------------------------------
 
     private fun checkForUpdates() {
         setBusy(
