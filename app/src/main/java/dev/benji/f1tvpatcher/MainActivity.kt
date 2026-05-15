@@ -401,7 +401,7 @@ class MainActivity : Activity() {
             "CHECKING" to {
                 setBusy(
                     headline = "Checking\nfor updates",
-                    sub = "FETCHING LATEST PATCH",
+                    sub = "Fetching latest patch",
                 )
             },
             "UPDATE AVAIL" to {
@@ -513,7 +513,7 @@ class MainActivity : Activity() {
         statusHeadline.setTextColor(HudPalette.text)
         statusHeadline.text = "Uninstall\nrequired"
         statusSub.text =
-            "THE ORIGINAL APP NEEDS TO BE UNINSTALLED FIRST. KEEP IN MIND YOU WILL HAVE TO SIGN IN AGAIN."
+            "The original app needs to be uninstalled first. Keep in mind you will have to sign in again."
 
         setDataRows(
             listOfNotNull(
@@ -560,7 +560,7 @@ class MainActivity : Activity() {
         statusHeadline.setTextColor(HudPalette.text)
         statusHeadline.text = "Ready to\ninstall"
         statusSub.text =
-            "F1 TV IS NOT INSTALLED YET. THIS WILL DIRECTLY INSTALL THE PATCHED BUILD."
+            "F1 TV is not installed yet. This will directly install the patched build."
 
         setDataRows(
             listOfNotNull(
@@ -607,7 +607,7 @@ class MainActivity : Activity() {
         statusHeadline.setTextColor(HudPalette.red)
         statusHeadline.text = "Connection\nerror"
         statusSub.text =
-            "COULDN'T FETCH THE LATEST PATCH. PLEASE MAKE SURE YOU'RE CONNECTED TO THE INTERNET AND TRY AGAIN LATER."
+            "Couldn't fetch the latest patch. Please make sure you're connected to the internet and try again later."
 
         setDataRows(
             listOf(
@@ -634,7 +634,7 @@ class MainActivity : Activity() {
     private fun checkForUpdates() {
         setBusy(
             headline = "Checking\nfor updates",
-            sub = "FETCHING LATEST PATCH",
+            sub = "Fetching latest patch",
         )
         executor.execute {
             runCatching {
