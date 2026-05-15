@@ -14,6 +14,10 @@ class UpdateRepository(context: Context) {
         get() = prefs.getString("lastReleaseTitle", null)
         set(value) = prefs.edit { putString("lastReleaseTitle", value) }
 
+    var lastCheckedAt: Long
+        get() = prefs.getLong("lastCheckedAt", 0L)
+        set(value) = prefs.edit { putLong("lastCheckedAt", value) }
+
     var lastError: String?
         get() = prefs.getString("lastError", null)
         set(value) = prefs.edit { putString("lastError", value) }
@@ -30,6 +34,7 @@ class UpdateRepository(context: Context) {
         prefs.edit {
             putString("lastReleaseTag", release.tagName)
             putString("lastReleaseTitle", release.title)
+            putLong("lastCheckedAt", System.currentTimeMillis())
             remove("lastError")
         }
     }
