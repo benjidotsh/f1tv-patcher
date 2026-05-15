@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.benji.f1tvpatcher"
+    namespace = "sh.benji.f1tvpatcher"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dev.benji.f1tvpatcher"
+        applicationId = "sh.benji.f1tvpatcher"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -33,7 +33,6 @@ kotlin {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.work:work-runtime-ktx:2.10.0")
 
     testImplementation("junit:junit:4.13.2")
 }

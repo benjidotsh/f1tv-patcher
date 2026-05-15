@@ -1,4 +1,4 @@
-package dev.benji.f1tvpatcher
+package sh.benji.f1tvpatcher
 
 import android.content.Context
 import androidx.core.content.edit

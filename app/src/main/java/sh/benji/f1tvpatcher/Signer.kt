@@ -1,4 +1,4 @@
-package dev.benji.f1tvpatcher
+package sh.benji.f1tvpatcher
 
 import android.content.pm.PackageInfo
 import android.os.Build

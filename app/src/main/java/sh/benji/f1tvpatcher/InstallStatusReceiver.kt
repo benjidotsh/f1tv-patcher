@@ -1,4 +1,4 @@
-package dev.benji.f1tvpatcher
+package sh.benji.f1tvpatcher
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -29,7 +29,10 @@ class InstallStatusReceiver : BroadcastReceiver() {
             else -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                     ?: "Install failed"
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                val failure = Intent(Constants.INSTALL_FAILED_ACTION)
+                    .setPackage(context.packageName)
+                    .putExtra(Constants.EXTRA_INSTALL_FAILURE_MESSAGE, message)
+                context.sendBroadcast(failure)
             }
         }
     }

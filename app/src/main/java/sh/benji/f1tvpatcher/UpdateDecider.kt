@@ -1,4 +1,4 @@
-package dev.benji.f1tvpatcher
+package sh.benji.f1tvpatcher
 
 object UpdateDecider {
     fun decide(installed: InstalledApp?, downloaded: DownloadedApkm): UpdateStatus {

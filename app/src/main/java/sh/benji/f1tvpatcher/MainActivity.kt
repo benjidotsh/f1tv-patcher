@@ -1,14 +1,11 @@
-package dev.benji.f1tvpatcher
+package sh.benji.f1tvpatcher
 
-import android.Manifest
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.content.res.ColorStateList
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -21,7 +18,6 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -56,6 +52,7 @@ class MainActivity : Activity() {
     private var isCheckingForUpdates = false
     private var awaitingInstallPermission = false
     private var packageReceiverRegistered = false
+    private var installFailureReceiverRegistered = false
 
     private val packageEventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -65,12 +62,24 @@ class MainActivity : Activity() {
         }
     }
 
+    private val installFailureReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val message = intent?.getStringExtra(Constants.EXTRA_INSTALL_FAILURE_MESSAGE)
+                ?: "Install failed"
+            renderInstallError(RuntimeException(message))
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        NotificationHelper(this).ensureChannel()
-        WeeklyUpdateScheduler.schedule(this)
         buildUi()
-        maybeRequestNotificationPermission()
+        ContextCompat.registerReceiver(
+            this,
+            installFailureReceiver,
+            IntentFilter(Constants.INSTALL_FAILED_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        installFailureReceiverRegistered = true
         checkForUpdates()
     }
 
@@ -90,7 +99,6 @@ class MainActivity : Activity() {
             )
             packageReceiverRegistered = true
         }
-        maybeRequestNotificationPermission()
         refreshStatusFromCurrentDownload()
         if (awaitingInstallPermission) {
             awaitingInstallPermission = false
@@ -116,6 +124,10 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (installFailureReceiverRegistered) {
+            unregisterReceiver(installFailureReceiver)
+            installFailureReceiverRegistered = false
+        }
         executor.shutdownNow()
     }
 
@@ -432,9 +444,6 @@ class MainActivity : Activity() {
             "ERROR · INSTALL" to {
                 renderInstallError(RuntimeException("INSTALL_FAILED_INSUFFICIENT_STORAGE"))
             },
-            "NOTIFICATION" to {
-                NotificationHelper(this).notifyUpdateAvailable(DebugMocks.release)
-            },
         )
     }
 
@@ -634,14 +643,13 @@ class MainActivity : Activity() {
         setInstallIndicator(localInstallIndicator())
 
         statusHeadline.setTextColor(HudPalette.red)
-        statusHeadline.text = "Install\nfailed"
+        statusHeadline.text = "Installation\nfailed"
         statusSub.text =
-            "The install couldn't complete. Try again, or check that you have enough storage."
+            "The installation couldn't complete. Please check that you have enough storage and try again."
 
         setDataRows(
             listOf(
-                DataRow("REASON", "INSTALL FAILED", HudPalette.red),
-                DataRow("DETAIL", throwable.message ?: throwable.javaClass.simpleName),
+                DataRow("ERROR", throwable.message ?: throwable.javaClass.simpleName, HudPalette.red),
             ),
         )
 
@@ -719,13 +727,4 @@ class MainActivity : Activity() {
         InstallCoordinator(this).requestUninstall()
     }
 
-    private fun maybeRequestNotificationPermission() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 20)
-    }
 }

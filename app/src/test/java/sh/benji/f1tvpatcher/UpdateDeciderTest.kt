@@ -1,4 +1,4 @@
-package dev.benji.f1tvpatcher
+package sh.benji.f1tvpatcher
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
