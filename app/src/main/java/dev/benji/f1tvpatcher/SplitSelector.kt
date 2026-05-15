@@ -4,6 +4,12 @@ import java.io.File
 import kotlin.math.abs
 
 object SplitSelector {
+    private val configSplitPrefixes = listOf(
+        "config.",
+        "split_config.",
+        "${Constants.TARGET_PACKAGE}.config.",
+    )
+
     private val abiTokens = mapOf(
         "arm64-v8a" to listOf("arm64_v8a", "arm64-v8a"),
         "armeabi-v7a" to listOf("armeabi_v7a", "armeabi-v7a"),
@@ -38,25 +44,32 @@ object SplitSelector {
     private fun findAbiSplit(files: List<File>, abis: List<String>): File? {
         for (abi in abis) {
             val tokens = abiTokens[abi].orEmpty()
-            files.firstOrNull { file -> tokens.any { token -> file.name.contains(token, true) } }
+            files.firstOrNull { file -> tokens.any { token -> file.hasSplitToken(token) } }
                 ?.let { return it }
         }
         return null
     }
 
     private fun findLanguageSplit(files: List<File>, language: String): File? =
-        files.firstOrNull { file ->
-            file.name.contains(".$language.", true) ||
-                file.name.contains("_$language.", true) ||
-                file.name.contains("config.$language", true)
-        } ?: files.firstOrNull { file -> file.name.contains(".en.", true) || file.name.contains("config.en", true) }
+        files.firstOrNull { file -> file.hasSplitToken(language) }
+            ?: files.firstOrNull { file -> file.hasSplitToken("en") }
 
     private fun findDensitySplit(files: List<File>, densityDpi: Int): File? {
-        val target = densities.minBy { (_, dpi) -> abs(dpi - densityDpi) }.first
-        return files.firstOrNull { file -> file.name.contains(target, ignoreCase = true) }
+        val available = densities.mapNotNull { (bucket, dpi) ->
+            files.firstOrNull { file -> file.hasSplitToken(bucket) }?.let { file -> file to dpi }
+        }
+        return available.minByOrNull { (_, dpi) -> abs(dpi - densityDpi) }?.first
     }
 
     private fun File.isConfigSplit(): Boolean =
-        name.contains("config.", ignoreCase = true) ||
-            name.contains("config_", ignoreCase = true)
+        configSplitPrefixes.any { prefix -> name.startsWith(prefix, ignoreCase = true) }
+
+    private fun File.hasSplitToken(token: String): Boolean {
+        val bareName = name.removeSuffix(".apk")
+        return bareName.equals(token, ignoreCase = true) ||
+            bareName.endsWith(".$token", ignoreCase = true) ||
+            bareName.endsWith("_$token", ignoreCase = true) ||
+            bareName.contains(".$token.", ignoreCase = true) ||
+            bareName.contains("_$token.", ignoreCase = true)
+    }
 }
