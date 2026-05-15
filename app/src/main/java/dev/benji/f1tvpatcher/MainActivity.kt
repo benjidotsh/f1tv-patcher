@@ -16,6 +16,7 @@ import android.text.format.Formatter
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -52,6 +53,7 @@ class MainActivity : Activity() {
 
     private var currentDownload: DownloadedApkm? = null
     private var currentStatus: UpdateStatus? = null
+    private var isCheckingForUpdates = false
     private var awaitingInstallPermission = false
     private var packageReceiverRegistered = false
 
@@ -331,11 +333,14 @@ class MainActivity : Activity() {
     }
 
     private fun setKeys(keys: List<KeySpec>) {
+        val previousLabel = (currentFocus as? Button)?.tag as? String
         keysRow.removeAllViews()
         val (rightKeys, leftKeys) = keys.partition { it.alignEnd }
+        val ordered = mutableListOf<Button>()
 
-        leftKeys.forEachIndexed { i, key ->
+        leftKeys.forEach { key ->
             val btn = hudKeyButton(this, key.label, key.primary).apply {
+                tag = key.label
                 setOnClickListener { key.onClick() }
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -343,7 +348,7 @@ class MainActivity : Activity() {
                 ).apply { marginEnd = dp(12) }
             }
             keysRow.addView(btn)
-            if (i == 0) btn.requestFocus()
+            ordered += btn
         }
 
         keysRow.addView(
@@ -365,6 +370,7 @@ class MainActivity : Activity() {
 
         rightKeys.forEachIndexed { i, key ->
             val btn = hudKeyButton(this, key.label, key.primary).apply {
+                tag = key.label
                 setOnClickListener { key.onClick() }
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -372,8 +378,11 @@ class MainActivity : Activity() {
                 ).apply { if (i < rightKeys.size - 1) marginEnd = dp(12) }
             }
             keysRow.addView(btn)
-            if (leftKeys.isEmpty() && i == 0) btn.requestFocus()
+            ordered += btn
         }
+
+        val target = ordered.firstOrNull { it.tag == previousLabel } ?: ordered.firstOrNull()
+        target?.requestFocus()
     }
 
     private fun showDebugMenu(anchor: View) {
@@ -417,8 +426,11 @@ class MainActivity : Activity() {
                 currentDownload = null
                 renderNotInstalled(status)
             },
-            "ERROR" to {
-                renderError(RuntimeException("Timeout connecting to api.github.com"))
+            "ERROR · FETCH" to {
+                renderFetchError(RuntimeException("Timeout connecting to api.github.com"))
+            },
+            "ERROR · INSTALL" to {
+                renderInstallError(RuntimeException("INSTALL_FAILED_INSUFFICIENT_STORAGE"))
             },
             "NOTIFICATION" to {
                 NotificationHelper(this).notifyUpdateAvailable(DebugMocks.release)
@@ -570,7 +582,7 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun renderError(throwable: Throwable) {
+    private fun renderFetchError(throwable: Throwable) {
         progress.visibility = View.GONE
 
         setInstallIndicator(localInstallIndicator())
@@ -616,10 +628,36 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun renderInstallError(throwable: Throwable) {
+        progress.visibility = View.GONE
+
+        setInstallIndicator(localInstallIndicator())
+
+        statusHeadline.setTextColor(HudPalette.red)
+        statusHeadline.text = "Install\nfailed"
+        statusSub.text =
+            "The install couldn't complete. Try again, or check that you have enough storage."
+
+        setDataRows(
+            listOf(
+                DataRow("REASON", "INSTALL FAILED", HudPalette.red),
+                DataRow("DETAIL", throwable.message ?: throwable.javaClass.simpleName),
+            ),
+        )
+
+        setKeys(
+            listOf(
+                KeySpec("RETRY", true) { installPatch() },
+            ),
+        )
+    }
+
     private fun shortVersion(installed: InstalledApp): String =
         installed.versionName ?: "v${installed.versionCode}"
 
     private fun checkForUpdates() {
+        if (isCheckingForUpdates) return
+        isCheckingForUpdates = true
         setBusy(
             headline = "Checking\nfor updates",
             sub = "Fetching latest patch",
@@ -636,10 +674,16 @@ class MainActivity : Activity() {
                 currentStatus = status
                 status
             }.onSuccess { status ->
-                main.post { render(status) }
+                main.post {
+                    isCheckingForUpdates = false
+                    render(status)
+                }
             }.onFailure { throwable ->
                 UpdateRepository(this).lastError = throwable.message
-                main.post { renderError(throwable) }
+                main.post {
+                    isCheckingForUpdates = false
+                    renderFetchError(throwable)
+                }
             }
         }
     }
@@ -660,8 +704,13 @@ class MainActivity : Activity() {
             runCatching {
                 val selected = SplitSelector.select(downloaded.apkFiles, DeviceProfile.from(this))
                 coordinator.install(selected)
+            }.onSuccess {
+                main.post {
+                    progress.visibility = View.GONE
+                    render(refreshStatusFromCurrentDownload() ?: currentStatus)
+                }
             }.onFailure { throwable ->
-                main.post { renderError(throwable) }
+                main.post { renderInstallError(throwable) }
             }
         }
     }

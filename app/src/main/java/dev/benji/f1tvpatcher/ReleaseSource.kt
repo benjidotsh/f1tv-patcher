@@ -29,26 +29,29 @@ class ReleaseSource(private val context: Context) {
             readTimeout = 20_000
         }
 
-        val json = when (val code = connection.responseCode) {
-            200 -> {
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                repo.releaseEtag = connection.getHeaderField("ETag")
-                repo.releaseJson = body
-                body
+        val json = try {
+            when (val code = connection.responseCode) {
+                200 -> {
+                    val body = connection.inputStream.bufferedReader().use { it.readText() }
+                    repo.saveReleaseCache(connection.getHeaderField("ETag"), body)
+                    body
+                }
+                304 -> cachedJson
+                    ?: throw IOException("304 from GitHub but no cached release available")
+                else -> {
+                    val errBody = (connection.errorStream ?: connection.inputStream)
+                        ?.bufferedReader()?.use { it.readText() } ?: ""
+                    val parsed = runCatching { JSONObject(errBody).optString("message") }
+                        .getOrNull()?.ifBlank { null }
+                        ?.substringBefore(" (")
+                    val display = parsed
+                        ?: errBody.take(240).ifBlank { connection.responseMessage ?: "HTTP $code" }
+                    val reset = connection.getHeaderField("X-RateLimit-Reset")?.toLongOrNull()
+                    throw GithubHttpException(code, reset, display)
+                }
             }
-            304 -> cachedJson
-                ?: throw IOException("304 from GitHub but no cached release available")
-            else -> {
-                val errBody = (connection.errorStream ?: connection.inputStream)
-                    ?.bufferedReader()?.use { it.readText() } ?: ""
-                val parsed = runCatching { JSONObject(errBody).optString("message") }
-                    .getOrNull()?.ifBlank { null }
-                    ?.substringBefore(" (")
-                val display = parsed
-                    ?: errBody.take(240).ifBlank { connection.responseMessage ?: "HTTP $code" }
-                val reset = connection.getHeaderField("X-RateLimit-Reset")?.toLongOrNull()
-                throw GithubHttpException(code, reset, display)
-            }
+        } finally {
+            connection.disconnect()
         }
 
         val root = JSONObject(json)

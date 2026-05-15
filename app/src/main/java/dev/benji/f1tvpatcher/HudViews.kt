@@ -118,6 +118,10 @@ class HudStatusDot @JvmOverloads constructor(
 
     init {
         setLayerType(LAYER_TYPE_SOFTWARE, null)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
         animator.start()
     }
 

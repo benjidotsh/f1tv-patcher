@@ -38,4 +38,11 @@ class UpdateRepository(context: Context) {
             remove("lastError")
         }
     }
+
+    fun saveReleaseCache(etag: String?, json: String) {
+        prefs.edit {
+            putString("releaseEtag", etag)
+            putString("releaseJson", json)
+        }
+    }
 }
