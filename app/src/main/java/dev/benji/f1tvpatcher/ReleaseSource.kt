@@ -3,20 +3,52 @@ package dev.benji.f1tvpatcher
 import android.content.Context
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
+class GithubHttpException(
+    val status: Int,
+    val rateLimitResetEpoch: Long?,
+    message: String,
+) : IOException(message)
+
 class ReleaseSource(private val context: Context) {
     fun fetchLatestRelease(): ReleaseInfo {
-        val json = URL(Constants.RELEASE_API).openConnection().let { connection ->
-            (connection as HttpURLConnection).apply {
-                requestMethod = "GET"
-                setRequestProperty("Accept", "application/vnd.github+json")
-                setRequestProperty("User-Agent", "F1-TV-Patcher")
-                connectTimeout = 15_000
-                readTimeout = 20_000
-            }.inputStream.bufferedReader().use { it.readText() }
+        val repo = UpdateRepository(context)
+        val cachedJson = repo.releaseJson
+        val cachedEtag = if (cachedJson != null) repo.releaseEtag else null
+
+        val connection = (URL(Constants.RELEASE_API).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("User-Agent", "F1-TV-Patcher")
+            if (cachedEtag != null) setRequestProperty("If-None-Match", cachedEtag)
+            connectTimeout = 15_000
+            readTimeout = 20_000
+        }
+
+        val json = when (val code = connection.responseCode) {
+            200 -> {
+                val body = connection.inputStream.bufferedReader().use { it.readText() }
+                repo.releaseEtag = connection.getHeaderField("ETag")
+                repo.releaseJson = body
+                body
+            }
+            304 -> cachedJson
+                ?: throw IOException("304 from GitHub but no cached release available")
+            else -> {
+                val errBody = (connection.errorStream ?: connection.inputStream)
+                    ?.bufferedReader()?.use { it.readText() } ?: ""
+                val parsed = runCatching { JSONObject(errBody).optString("message") }
+                    .getOrNull()?.ifBlank { null }
+                    ?.substringBefore(" (")
+                val display = parsed
+                    ?: errBody.take(240).ifBlank { connection.responseMessage ?: "HTTP $code" }
+                val reset = connection.getHeaderField("X-RateLimit-Reset")?.toLongOrNull()
+                throw GithubHttpException(code, reset, display)
+            }
         }
 
         val root = JSONObject(json)

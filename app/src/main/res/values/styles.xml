@@ -1,7 +1,7 @@
 <resources>
     <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/bg</item>
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@color/hud_bg</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:colorAccent">@color/hud_red</item>
     </style>
 </resources>

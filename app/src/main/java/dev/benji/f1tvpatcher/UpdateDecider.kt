@@ -6,7 +6,7 @@ object UpdateDecider {
             "Release package is ${downloaded.metadata.packageName}, expected ${Constants.TARGET_PACKAGE}"
         }
 
-        if (installed == null) return UpdateStatus.UpdateAvailable(null, downloaded.release)
+        if (installed == null) return UpdateStatus.NotInstalled(downloaded.release)
 
         val sameSigner = installed.signerDigest != null &&
             installed.signerDigest == downloaded.metadata.signerDigest

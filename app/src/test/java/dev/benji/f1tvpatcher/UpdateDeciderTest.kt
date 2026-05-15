@@ -21,8 +21,8 @@ class UpdateDeciderTest {
     )
 
     @Test
-    fun noInstalledAppMeansUpdateAvailable() {
-        assertTrue(UpdateDecider.decide(null, downloaded(10, "patched")) is UpdateStatus.UpdateAvailable)
+    fun noInstalledAppMeansNotInstalled() {
+        assertTrue(UpdateDecider.decide(null, downloaded(10, "patched")) is UpdateStatus.NotInstalled)
     }
 
     @Test

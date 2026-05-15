@@ -14,13 +14,17 @@ class UpdateRepository(context: Context) {
         get() = prefs.getString("lastReleaseTitle", null)
         set(value) = prefs.edit { putString("lastReleaseTitle", value) }
 
-    var pendingInstallTag: String?
-        get() = prefs.getString("pendingInstallTag", null)
-        set(value) = prefs.edit { putString("pendingInstallTag", value) }
-
     var lastError: String?
         get() = prefs.getString("lastError", null)
         set(value) = prefs.edit { putString("lastError", value) }
+
+    var releaseEtag: String?
+        get() = prefs.getString("releaseEtag", null)
+        set(value) = prefs.edit { putString("releaseEtag", value) }
+
+    var releaseJson: String?
+        get() = prefs.getString("releaseJson", null)
+        set(value) = prefs.edit { putString("releaseJson", value) }
 
     fun recordRelease(release: ReleaseInfo) {
         prefs.edit {

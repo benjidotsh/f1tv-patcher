@@ -39,9 +39,9 @@ data class DownloadedApkm(
 )
 
 sealed interface UpdateStatus {
-    data object NotInstalled : UpdateStatus
+    data class NotInstalled(val release: ReleaseInfo) : UpdateStatus
     data class OriginalOrUnknownInstalled(val installed: InstalledApp, val release: ReleaseInfo) :
         UpdateStatus
     data class PatchedCurrent(val installed: InstalledApp, val release: ReleaseInfo) : UpdateStatus
-    data class UpdateAvailable(val installed: InstalledApp?, val release: ReleaseInfo) : UpdateStatus
+    data class UpdateAvailable(val installed: InstalledApp, val release: ReleaseInfo) : UpdateStatus
 }
