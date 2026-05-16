@@ -10,15 +10,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sh.benji.f1tvpatcher.Constants
 import sh.benji.f1tvpatcher.data.UpdateRepository
 import sh.benji.f1tvpatcher.install.InstallCoordinator
 import sh.benji.f1tvpatcher.ui.theme.HudPalette
+import sh.benji.f1tvpatcher.BuildConfig
 
 class MainActivity : ComponentActivity() {
     private val viewModel: UpdateViewModel by viewModels()
@@ -64,7 +69,7 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            val state by viewModel.state.collectAsState()
+            val state by viewModel.state.collectAsStateWithLifecycle()
             MaterialTheme(
                 colorScheme = darkColorScheme(
                     primary = HudPalette.red,
@@ -74,13 +79,21 @@ class MainActivity : ComponentActivity() {
                     onBackground = HudPalette.text,
                 ),
             ) {
-                HudScreen(
-                    state = state,
-                    onCheck = { viewModel.refresh() },
-                    onInstall = { requestInstall() },
-                    onUninstall = { InstallCoordinator(this).requestUninstall() },
-                    onDebugSelect = { viewModel.setDebugState(it) },
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(HudPalette.bg),
+                ) {
+                    AppTopBar()
+                    HudScreen(
+                        state = state,
+                        onCheck = viewModel::refresh,
+                        onInstall = ::requestInstall,
+                        onUninstall = viewModel::uninstall,
+                        onDebugSelect = if (BuildConfig.DEBUG) viewModel::setDebugState else null,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }

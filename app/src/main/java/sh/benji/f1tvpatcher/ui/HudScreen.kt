@@ -1,13 +1,12 @@
 package sh.benji.f1tvpatcher.ui
 
-import android.content.Context
+import android.text.format.DateUtils
 import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -31,7 +30,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import sh.benji.f1tvpatcher.BuildConfig
 import sh.benji.f1tvpatcher.R
 import sh.benji.f1tvpatcher.data.GithubHttpException
 import sh.benji.f1tvpatcher.domain.DebugMocks
@@ -41,9 +39,10 @@ import sh.benji.f1tvpatcher.ui.components.HudIconButton
 import sh.benji.f1tvpatcher.ui.components.HudKeyButton
 import sh.benji.f1tvpatcher.ui.theme.HudPalette
 import sh.benji.f1tvpatcher.ui.theme.HudTypeface
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun HudScreen(
@@ -52,54 +51,21 @@ fun HudScreen(
     onInstall: () -> Unit,
     onUninstall: () -> Unit,
     onDebugSelect: ((UiState) -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HudPalette.bg),
-    ) {
-        HudTopBar(indicator = state.indicator)
-        Hairline()
+    Column(modifier = modifier) {
         HudStage(
             state = state,
-            context = context,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
         )
-        Hairline()
         HudKeys(
             state = state,
             onCheck = onCheck,
             onInstall = onInstall,
             onUninstall = onUninstall,
             onDebugSelect = onDebugSelect,
-        )
-    }
-}
-
-@Composable
-private fun HudTopBar(indicator: InstallIndicator) {
-    val (label, color) = indicatorLabel(indicator)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 36.dp, vertical = 14.dp),
-    ) {
-        BasicText(
-            text = label,
-            style = HudTypeface.mono13.copy(color = color),
-            modifier = Modifier.weight(1f),
-        )
-        BasicText(
-            text = "v${BuildConfig.VERSION_NAME}",
-            style = HudTypeface.mono13.copy(
-                color = HudPalette.textDim,
-                textAlign = TextAlign.End,
-            ),
         )
     }
 }
@@ -115,11 +81,12 @@ private fun Hairline() {
 }
 
 @Composable
-private fun HudStage(state: UiState, context: Context, modifier: Modifier = Modifier) {
+private fun HudStage(state: UiState, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     Column(
         modifier = modifier.padding(horizontal = 56.dp, vertical = 24.dp),
     ) {
-        val view = stageContent(state, context)
+        val view = stageContent(state) { bytes -> formatSize(context, bytes) }
 
         BasicText(
             text = view.headline.uppercase(),
@@ -181,10 +148,10 @@ private fun HudKeys(
 ) {
     val keys = buildKeys(state, onCheck, onInstall, onUninstall)
     val primaryRequester = remember { FocusRequester() }
-    val primaryIndex = keys.indexOfFirst { it.primary }
+    val primaryKey = keys.firstOrNull { it.primary }
 
-    LaunchedEffect(primaryIndex, keys.size) {
-        if (primaryIndex >= 0) primaryRequester.requestFocus()
+    LaunchedEffect(primaryKey) {
+        if (primaryKey != null) primaryRequester.requestFocus()
     }
 
     Row(
@@ -194,29 +161,26 @@ private fun HudKeys(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val (leftKeys, rightKeys) = keys.partition { !it.alignEnd }
-        leftKeys.forEachIndexed { index, key ->
-            HudKeyButton(
-                label = key.label,
-                primary = key.primary,
-                onClick = key.onClick,
-                focusRequester = if (key === keys.getOrNull(primaryIndex)) primaryRequester else null,
-            )
-            if (index < leftKeys.lastIndex) Spacer(Modifier.width(12.dp))
-        }
+        KeyRow(leftKeys, primaryKey, primaryRequester)
         Spacer(Modifier.weight(1f))
-        if (BuildConfig.DEBUG && onDebugSelect != null) {
+        if (onDebugSelect != null) {
             DebugMenuButton(onSelect = onDebugSelect)
             Spacer(Modifier.width(12.dp))
         }
-        rightKeys.forEachIndexed { index, key ->
-            HudKeyButton(
-                label = key.label,
-                primary = key.primary,
-                onClick = key.onClick,
-                focusRequester = if (key === keys.getOrNull(primaryIndex)) primaryRequester else null,
-            )
-            if (index < rightKeys.lastIndex) Spacer(Modifier.width(12.dp))
-        }
+        KeyRow(rightKeys, primaryKey, primaryRequester)
+    }
+}
+
+@Composable
+private fun KeyRow(keys: List<KeySpec>, primaryKey: KeySpec?, primaryRequester: FocusRequester) {
+    keys.forEachIndexed { index, key ->
+        HudKeyButton(
+            label = key.label,
+            primary = key.primary,
+            onClick = key.onClick,
+            focusRequester = if (key === primaryKey) primaryRequester else null,
+        )
+        if (index < keys.lastIndex) Spacer(Modifier.width(12.dp))
     }
 }
 
@@ -248,38 +212,24 @@ private fun DebugMenuButton(onSelect: (UiState) -> Unit) {
     }
 }
 
-private fun debugStates(): List<Pair<String, UiState>> = listOf(
-    "CHECKING" to UiState.Busy.checking(InstallIndicator.NotInstalled),
-    "INSTALLING" to UiState.Busy.installing(InstallIndicator.NotInstalled),
-    "UPDATE AVAIL" to UiState.Ready(
-        status = UpdateStatus.UpdateAvailable(DebugMocks.installed, DebugMocks.release),
-        sizeBytes = DebugMocks.release.asset.size,
-        lastCheckedAt = System.currentTimeMillis(),
-    ),
-    "ORIGINAL" to UiState.Ready(
-        status = UpdateStatus.OriginalOrUnknownInstalled(DebugMocks.installed, DebugMocks.release),
-        sizeBytes = DebugMocks.release.asset.size,
-        lastCheckedAt = System.currentTimeMillis(),
-    ),
-    "UP TO DATE" to UiState.Ready(
-        status = UpdateStatus.PatchedCurrent(DebugMocks.installed, DebugMocks.release),
-        sizeBytes = DebugMocks.release.asset.size,
-        lastCheckedAt = System.currentTimeMillis(),
-    ),
-    "NOT INSTALLED" to UiState.Ready(
-        status = UpdateStatus.NotInstalled(DebugMocks.release),
-        sizeBytes = DebugMocks.release.asset.size,
-        lastCheckedAt = System.currentTimeMillis(),
-    ),
-    "ERROR · FETCH" to UiState.FetchError(
-        throwable = RuntimeException("Timeout connecting to api.github.com"),
-        indicator = InstallIndicator.NotInstalled,
-    ),
-    "ERROR · INSTALL" to UiState.InstallError(
-        throwable = RuntimeException("INSTALL_FAILED_INSUFFICIENT_STORAGE"),
-        indicator = InstallIndicator.Installed,
-    ),
-)
+private fun debugStates(): List<Pair<String, UiState>> {
+    val now = System.currentTimeMillis()
+    fun ready(status: UpdateStatus) = UiState.Ready(status, DebugMocks.release.asset.size, now)
+    return listOf(
+        "CHECKING" to UiState.Busy.checking(),
+        "INSTALLING" to UiState.Busy.installing(),
+        "UPDATE AVAIL" to ready(UpdateStatus.UpdateAvailable(DebugMocks.installed, DebugMocks.release)),
+        "ORIGINAL" to ready(UpdateStatus.OriginalOrUnknownInstalled(DebugMocks.installed, DebugMocks.release)),
+        "UP TO DATE" to ready(UpdateStatus.PatchedCurrent(DebugMocks.installed, DebugMocks.release)),
+        "NOT INSTALLED" to ready(UpdateStatus.NotInstalled(DebugMocks.release)),
+        "ERROR · FETCH" to UiState.FetchError(
+            throwable = RuntimeException("Timeout connecting to api.github.com"),
+        ),
+        "ERROR · INSTALL" to UiState.InstallError(
+            throwable = RuntimeException("INSTALL_FAILED_INSUFFICIENT_STORAGE"),
+        ),
+    )
+}
 
 private data class StageView(
     val headline: String,
@@ -297,26 +247,19 @@ private data class KeySpec(
     val onClick: () -> Unit,
 )
 
-private fun indicatorLabel(indicator: InstallIndicator): Pair<String, Color> = when (indicator) {
-    InstallIndicator.NotInstalled -> "F1 TV · NOT INSTALLED" to HudPalette.amber
-    InstallIndicator.Installed -> "F1 TV · INSTALLED" to HudPalette.textDim
-    InstallIndicator.Patched -> "F1 TV · PATCHED" to HudPalette.cyan
-    InstallIndicator.Original -> "F1 TV · ORIGINAL" to HudPalette.red
-}
-
-private fun stageContent(state: UiState, context: Context): StageView = when (state) {
+private fun stageContent(state: UiState, formatBytes: (Long) -> String): StageView = when (state) {
     is UiState.Busy -> StageView(
         headline = state.headline,
         headlineColor = HudPalette.text,
         sub = state.sub,
         rows = emptyList(),
     )
-    is UiState.Ready -> readyView(state, context)
+    is UiState.Ready -> readyView(state, formatBytes)
     is UiState.FetchError -> fetchErrorView(state)
     is UiState.InstallError -> installErrorView(state)
 }
 
-private fun readyView(state: UiState.Ready, context: Context): StageView = when (val status = state.status) {
+private fun readyView(state: UiState.Ready, formatBytes: (Long) -> String): StageView = when (val status = state.status) {
     is UpdateStatus.UpdateAvailable -> StageView(
         headline = "Update\navailable",
         headlineColor = HudPalette.text,
@@ -324,7 +267,7 @@ private fun readyView(state: UiState.Ready, context: Context): StageView = when 
         rows = listOfNotNull(
             DataRow("CURRENT", shortVersion(status.installed)),
             DataRow("LATEST", status.release.tagName),
-            DataRow("SIZE", formatSize(context, state.sizeBytes)),
+            DataRow("SIZE", formatBytes(state.sizeBytes)),
             lastCheckedRow(state.lastCheckedAt),
         ),
     )
@@ -353,33 +296,17 @@ private fun readyView(state: UiState.Ready, context: Context): StageView = when 
         sub = "F1 TV is not installed yet. This will directly install the patched build.",
         rows = listOfNotNull(
             DataRow("VERSION", status.release.tagName),
-            DataRow("SIZE", formatSize(context, state.sizeBytes)),
+            DataRow("SIZE", formatBytes(state.sizeBytes)),
             lastCheckedRow(state.lastCheckedAt),
         ),
     )
 }
 
+private val rateLimitTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
 private fun fetchErrorView(state: UiState.FetchError): StageView {
     val t = state.throwable
-    val reason = when (t) {
-        is GithubHttpException -> when {
-            t.status == 403 || t.status == 429 -> {
-                val reset = t.rateLimitResetEpoch
-                if (reset != null) {
-                    "RATE LIMITED · RESETS ${SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(reset * 1000))}"
-                } else "RATE LIMITED"
-            }
-            t.status == 404 -> "RELEASE NOT FOUND"
-            t.status in 500..599 -> "GITHUB ${t.status}"
-            else -> "HTTP ${t.status}"
-        }
-        is java.net.UnknownHostException -> "NO NETWORK / DNS"
-        is java.net.SocketTimeoutException -> "TIMEOUT"
-        is java.net.ConnectException -> "CONNECTION REFUSED"
-        is javax.net.ssl.SSLException -> "TLS HANDSHAKE FAILED"
-        is java.io.IOException -> "NETWORK FAILURE"
-        else -> "UNEXPECTED ERROR"
-    }
+    val reason = githubFailureReason(t)
     return StageView(
         headline = "Connection\nfailed",
         headlineColor = HudPalette.red,
@@ -390,6 +317,29 @@ private fun fetchErrorView(state: UiState.FetchError): StageView {
             DataRow("HOST", "api.github.com"),
         ),
     )
+}
+
+private fun githubFailureReason(t: Throwable): String = when (t) {
+    is GithubHttpException -> githubHttpReason(t)
+    is java.net.UnknownHostException -> "NO NETWORK / DNS"
+    is java.net.SocketTimeoutException -> "TIMEOUT"
+    is java.net.ConnectException -> "CONNECTION REFUSED"
+    is javax.net.ssl.SSLException -> "TLS HANDSHAKE FAILED"
+    is java.io.IOException -> "NETWORK FAILURE"
+    else -> "UNEXPECTED ERROR"
+}
+
+private fun githubHttpReason(t: GithubHttpException): String = when {
+    t.status == 403 || t.status == 429 -> rateLimitedReason(t.rateLimitResetEpoch)
+    t.status == 404 -> "RELEASE NOT FOUND"
+    t.status in 500..599 -> "GITHUB ${t.status}"
+    else -> "HTTP ${t.status}"
+}
+
+private fun rateLimitedReason(resetEpoch: Long?): String {
+    if (resetEpoch == null) return "RATE LIMITED"
+    val time = LocalTime.ofInstant(Instant.ofEpochSecond(resetEpoch), ZoneId.systemDefault())
+    return "RATE LIMITED · RESETS ${time.format(rateLimitTimeFormatter)}"
 }
 
 private fun installErrorView(state: UiState.InstallError): StageView = StageView(
@@ -432,18 +382,21 @@ private fun buildKeys(
 private fun shortVersion(installed: InstalledApp): String =
     installed.versionName ?: "v${installed.versionCode}"
 
-private fun formatSize(context: Context, bytes: Long): String =
+private fun formatSize(context: android.content.Context, bytes: Long): String =
     if (bytes <= 0) "—" else Formatter.formatShortFileSize(context, bytes)
 
 private fun lastCheckedRow(epoch: Long): DataRow? {
     if (epoch == 0L) return null
-    val diff = System.currentTimeMillis() - epoch
-    val formatted = when {
-        diff < 60_000 -> "Just now"
-        diff < 3_600_000 -> "${diff / 60_000}m ago"
-        diff < 86_400_000 -> "${diff / 3_600_000}h ago"
-        diff < 604_800_000 -> "${diff / 86_400_000}d ago"
-        else -> SimpleDateFormat("MMM d", Locale.ENGLISH).format(Date(epoch))
+    val now = System.currentTimeMillis()
+    val formatted = if (now - epoch < DateUtils.MINUTE_IN_MILLIS) {
+        "Just now"
+    } else {
+        DateUtils.getRelativeTimeSpanString(
+            epoch,
+            now,
+            DateUtils.MINUTE_IN_MILLIS,
+            DateUtils.FORMAT_ABBREV_RELATIVE,
+        ).toString()
     }
     return DataRow("LAST CHECKED", formatted)
 }
