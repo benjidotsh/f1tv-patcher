@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
-import android.widget.Toast
 import androidx.core.content.IntentCompat
 import sh.benji.f1tvpatcher.Constants
 
@@ -21,7 +20,9 @@ class InstallStatusReceiver : BroadcastReceiver() {
             }
 
             PackageInstaller.STATUS_SUCCESS -> {
-                Toast.makeText(context, "F1 TV patch installed", Toast.LENGTH_LONG).show()
+                val success = Intent(Constants.INSTALL_SUCCEEDED_ACTION)
+                    .setPackage(context.packageName)
+                context.sendBroadcast(success)
             }
 
             else -> {

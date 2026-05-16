@@ -3,11 +3,13 @@ package sh.benji.f1tvpatcher.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import sh.benji.f1tvpatcher.data.ApkmInspector
 import sh.benji.f1tvpatcher.data.InstalledAppInspector
 import sh.benji.f1tvpatcher.data.ReleaseSource
@@ -22,13 +24,15 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
     private val context = app
 
     private val _state = MutableStateFlow<UiState>(
-        UiState.Busy("Checking\nfor updates", "Fetching latest patch", InstallIndicator.NotInstalled),
+        UiState.Busy.checking(InstallIndicator.NotInstalled),
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var currentDownload: DownloadedApkm? = null
     private var checkJob: Job? = null
     private var installJob: Job? = null
+    private var installPending: Boolean = false
+    private var installAfterCheck: Boolean = false
 
     init {
         refresh()
@@ -36,24 +40,31 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         if (checkJob?.isActive == true) return
-        _state.value = UiState.Busy("Checking\nfor updates", "Fetching latest patch", localIndicator())
+        _state.value = UiState.Busy.checking(localIndicator())
         checkJob = viewModelScope.launch {
             runCatching {
-                val source = ReleaseSource(context)
-                val release = source.fetchLatestRelease()
-                UpdateRepository(context).recordRelease(release)
-                val downloaded = ApkmInspector(context).inspect(release, source.download(release))
-                val installed = InstalledAppInspector(context).inspect()
-                val status = UpdateDecider.decide(installed, downloaded)
-                currentDownload = downloaded
-                status
+                withContext(Dispatchers.IO) {
+                    val source = ReleaseSource(context)
+                    val release = source.fetchLatestRelease()
+                    UpdateRepository(context).recordRelease(release)
+                    val downloaded = ApkmInspector(context).inspect(release, source.download(release))
+                    val installed = InstalledAppInspector(context).inspect()
+                    val status = UpdateDecider.decide(installed, downloaded)
+                    currentDownload = downloaded
+                    status
+                }
             }.onSuccess { status ->
                 _state.value = UiState.Ready(
                     status = status,
                     sizeBytes = currentDownload?.release?.asset?.size ?: 0L,
                     lastCheckedAt = UpdateRepository(context).lastCheckedAt,
                 )
+                if (installAfterCheck) {
+                    installAfterCheck = false
+                    install()
+                }
             }.onFailure { t ->
+                installAfterCheck = false
                 UpdateRepository(context).lastError = t.message
                 _state.value = UiState.FetchError(t, localIndicator())
             }
@@ -61,25 +72,41 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun install() {
-        val download = currentDownload ?: return refresh()
+        val download = currentDownload
+        if (download == null) {
+            installAfterCheck = true
+            if (checkJob?.isActive != true) refresh()
+            return
+        }
         if (installJob?.isActive == true) return
-        _state.value = UiState.Busy("Installing", "Committing install session", localIndicator())
+        installPending = true
+        _state.value = UiState.Busy.installing(localIndicator())
         installJob = viewModelScope.launch {
             runCatching {
-                val selected = SplitSelector.select(download.apkFiles, DeviceProfile.from(context))
-                InstallCoordinator(context).install(selected)
+                withContext(Dispatchers.IO) {
+                    val selected = SplitSelector.select(download.apkFiles, DeviceProfile.from(context))
+                    InstallCoordinator(context).install(selected)
+                }
             }.onFailure { t ->
+                installPending = false
                 _state.value = UiState.InstallError(t, localIndicator())
             }
         }
     }
 
     fun reportInstallFailure(message: String) {
+        installPending = false
         _state.value = UiState.InstallError(RuntimeException(message), localIndicator())
+    }
+
+    fun reportInstallSucceeded() {
+        installPending = false
+        refreshFromInstalled()
     }
 
     fun refreshFromInstalled() {
         if (checkJob?.isActive == true || installJob?.isActive == true) return
+        if (installPending) return
         val download = currentDownload ?: return
         val installed = InstalledAppInspector(context).inspect()
         val status = UpdateDecider.decide(installed, download)

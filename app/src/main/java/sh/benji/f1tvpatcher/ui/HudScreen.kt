@@ -39,7 +39,6 @@ import sh.benji.f1tvpatcher.domain.InstalledApp
 import sh.benji.f1tvpatcher.domain.UpdateStatus
 import sh.benji.f1tvpatcher.ui.components.HudIconButton
 import sh.benji.f1tvpatcher.ui.components.HudKeyButton
-import sh.benji.f1tvpatcher.ui.components.hudBackground
 import sh.benji.f1tvpatcher.ui.theme.HudPalette
 import sh.benji.f1tvpatcher.ui.theme.HudTypeface
 import java.text.SimpleDateFormat
@@ -59,7 +58,7 @@ fun HudScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .hudBackground(),
+            .background(HudPalette.bg),
     ) {
         HudTopBar(indicator = state.indicator)
         Hairline()
@@ -147,7 +146,6 @@ private fun HudStage(state: UiState, context: Context, modifier: Modifier = Modi
             )
         }
         view.rows.forEach { row ->
-            Hairline()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -168,6 +166,7 @@ private fun HudStage(state: UiState, context: Context, modifier: Modifier = Modi
                     modifier = Modifier.weight(1f),
                 )
             }
+            Hairline()
         }
     }
 }
@@ -250,11 +249,8 @@ private fun DebugMenuButton(onSelect: (UiState) -> Unit) {
 }
 
 private fun debugStates(): List<Pair<String, UiState>> = listOf(
-    "CHECKING" to UiState.Busy(
-        headline = "Checking\nfor updates",
-        sub = "Fetching latest patch",
-        indicator = InstallIndicator.NotInstalled,
-    ),
+    "CHECKING" to UiState.Busy.checking(InstallIndicator.NotInstalled),
+    "INSTALLING" to UiState.Busy.installing(InstallIndicator.NotInstalled),
     "UPDATE AVAIL" to UiState.Ready(
         status = UpdateStatus.UpdateAvailable(DebugMocks.installed, DebugMocks.release),
         sizeBytes = DebugMocks.release.asset.size,

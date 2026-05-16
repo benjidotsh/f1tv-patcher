@@ -15,7 +15,4 @@ object HudPalette {
     val keyFocused = Color(0x26FFFFFF)
     val keyBorder = Color(0xFF2A2A30)
     val keyText = Color(0xFFC8C8C8)
-    val gridLine = Color(0x14FFFFFF)
-    val scanLine = Color(0x09FFFFFF)
-    val vignette = Color(0xCC000000)
 }

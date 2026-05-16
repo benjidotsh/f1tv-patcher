@@ -10,6 +10,7 @@ private const val KEY_LAST_CHECKED_AT = "lastCheckedAt"
 private const val KEY_LAST_ERROR = "lastError"
 private const val KEY_RELEASE_ETAG = "releaseEtag"
 private const val KEY_RELEASE_JSON = "releaseJson"
+private const val KEY_AWAITING_INSTALL_PERMISSION = "awaitingInstallPermission"
 
 class UpdateRepository(context: Context) {
     private val prefs = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
@@ -37,6 +38,10 @@ class UpdateRepository(context: Context) {
     var releaseJson: String?
         get() = prefs.getString(KEY_RELEASE_JSON, null)
         set(value) = prefs.edit { putString(KEY_RELEASE_JSON, value) }
+
+    var awaitingInstallPermission: Boolean
+        get() = prefs.getBoolean(KEY_AWAITING_INSTALL_PERMISSION, false)
+        set(value) = prefs.edit { putBoolean(KEY_AWAITING_INSTALL_PERMISSION, value) }
 
     fun recordRelease(release: ReleaseInfo) {
         prefs.edit {

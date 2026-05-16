@@ -11,7 +11,15 @@ sealed interface UiState {
         val headline: String,
         val sub: String,
         override val indicator: InstallIndicator,
-    ) : UiState
+    ) : UiState {
+        companion object {
+            fun checking(indicator: InstallIndicator) =
+                Busy("Checking\nfor updates", "Fetching latest patch", indicator)
+
+            fun installing(indicator: InstallIndicator) =
+                Busy("Installing\npatch", "This can take a few seconds.", indicator)
+        }
+    }
 
     data class Ready(
         val status: UpdateStatus,

@@ -14,12 +14,11 @@ class InstallCoordinator(private val context: Context) {
     fun canRequestPackageInstalls(): Boolean =
         context.packageManager.canRequestPackageInstalls()
 
-    fun openUnknownSourcesSettings() {
-        val uri = Uri.parse("package:${context.packageName}")
-        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, uri)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-    }
+    fun unknownSourcesIntent(): Intent =
+        Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            Uri.parse("package:${context.packageName}"),
+        )
 
     fun requestUninstall() {
         val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:${Constants.TARGET_PACKAGE}"))
