@@ -17,11 +17,7 @@ object UpdateDecider {
             return UpdateStatus.OriginalOrUnknownInstalled(installed, downloaded.release)
         }
 
-        return if (VersionComparison.isInstalledAtLeastRelease(
-                installed.versionCode,
-                downloaded.metadata.versionCode,
-            )
-        ) {
+        return if (installed.versionCode >= downloaded.metadata.versionCode) {
             UpdateStatus.PatchedCurrent(installed, downloaded.release)
         } else {
             UpdateStatus.UpdateAvailable(installed, downloaded.release)

@@ -9,7 +9,5 @@ data class ReleaseAsset(
 
 data class ReleaseInfo(
     val tagName: String,
-    val title: String,
-    val publishedAt: String?,
     val asset: ReleaseAsset,
 )

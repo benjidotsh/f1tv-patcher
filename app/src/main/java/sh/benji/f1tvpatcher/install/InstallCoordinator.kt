@@ -48,7 +48,6 @@ class InstallCoordinator(private val context: Context) {
                 }
 
                 val callbackIntent = Intent(context, InstallStatusReceiver::class.java)
-                    .setAction(Constants.INSTALL_ACTION)
                 val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
                 val pendingIntent = PendingIntent.getBroadcast(context, sessionId, callbackIntent, flags)
                 installSession.commit(pendingIntent.intentSender)

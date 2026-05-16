@@ -9,8 +9,6 @@ object HudPalette {
     val textDim = Color(0xFF888888)
     val textSubtle = Color(0xFF4A4A50)
     val red = Color(0xFFE10600)
-    val cyan = Color(0xFF00D9FF)
-    val amber = Color(0xFFFFAB00)
     val keyResting = Color(0x14FFFFFF)
     val keyFocused = Color(0x26FFFFFF)
     val keyBorder = Color(0xFF2A2A30)

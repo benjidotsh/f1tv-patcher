@@ -11,8 +11,6 @@ data class ApkMetadata(
 
 data class DownloadedApkm(
     val release: ReleaseInfo,
-    val apkmFile: File,
-    val extractedDir: File,
     val metadata: ApkMetadata,
     val apkFiles: List<File>,
 )

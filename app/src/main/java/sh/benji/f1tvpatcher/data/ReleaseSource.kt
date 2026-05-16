@@ -16,6 +16,7 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.DigestInputStream
 import java.security.DigestOutputStream
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
@@ -27,10 +28,6 @@ class GithubHttpException(
 ) : IOException(message)
 
 class ReleaseSource(private val context: Context) {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .build()
 
     suspend fun fetchLatestRelease(): ReleaseInfo = withContext(Dispatchers.IO) {
         val repo = UpdateRepository(context)
@@ -79,8 +76,6 @@ class ReleaseSource(private val context: Context) {
 
         ReleaseInfo(
             tagName = root.getString("tag_name"),
-            title = root.optString("name").ifBlank { root.getString("tag_name") },
-            publishedAt = root.optString("published_at").ifBlank { null },
             asset = selected,
         )
     }
@@ -116,13 +111,20 @@ class ReleaseSource(private val context: Context) {
         }
 
         if (md != null) {
-            val actual = md.digest().joinToString("") { "%02x".format(it) }
+            val actual = md.digest().toHex()
             check(actual == expected) {
                 "Downloaded APKM does not match GitHub asset digest"
             }
         }
         Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         target
+    }
+
+    companion object {
+        private val client = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build()
     }
 }
 
@@ -146,15 +148,13 @@ private fun parseSha256Digest(digest: String?): String? {
 
 private fun File.matchesDigest(digest: String?): Boolean {
     val expected = parseSha256Digest(digest) ?: return true
-    val actual = inputStream().use { input ->
-        val messageDigest = MessageDigest.getInstance("SHA-256")
-        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-        while (true) {
-            val read = input.read(buffer)
-            if (read < 0) break
-            messageDigest.update(buffer, 0, read)
-        }
-        messageDigest.digest().joinToString("") { "%02x".format(it) }
+    val md = MessageDigest.getInstance("SHA-256")
+    DigestInputStream(inputStream(), md).use { input ->
+        val sink = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (input.read(sink) >= 0) { /* consume */ }
     }
-    return actual == expected
+    return md.digest().toHex() == expected
 }
+
+private fun ByteArray.toHex(): String =
+    joinToString("") { "%02x".format(it) }

@@ -1,10 +1,4 @@
 <resources>
     <color name="hud_bg">#050507</color>
-    <color name="hud_border">#1A1A20</color>
-    <color name="hud_text">#F4F4F4</color>
-    <color name="hud_text_dim">#888888</color>
-    <color name="hud_text_subtle">#4A4A50</color>
     <color name="hud_red">#E10600</color>
-    <color name="hud_cyan">#00D9FF</color>
-    <color name="hud_amber">#FFAB00</color>
 </resources>

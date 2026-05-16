@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
             UpdateRepository(this).awaitingInstallPermission = true
             Toast.makeText(
                 this,
-                "Please select F1 TV Patcher and reopen the app.",
+                "Please select F1 TV Patcher and reopen the app if it closes.",
                 Toast.LENGTH_LONG,
             ).show()
             unknownSourcesLauncher.launch(coordinator.unknownSourcesIntent())

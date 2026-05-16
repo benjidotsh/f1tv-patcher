@@ -1,5 +1,6 @@
 package sh.benji.f1tvpatcher.domain
 
+import android.util.DisplayMetrics
 import sh.benji.f1tvpatcher.Constants
 import java.io.File
 import kotlin.math.abs
@@ -19,12 +20,12 @@ object SplitSelector {
     )
 
     private val densities = listOf(
-        "ldpi" to 120,
-        "mdpi" to 160,
-        "hdpi" to 240,
-        "xhdpi" to 320,
-        "xxhdpi" to 480,
-        "xxxhdpi" to 640,
+        "ldpi" to DisplayMetrics.DENSITY_LOW,
+        "mdpi" to DisplayMetrics.DENSITY_MEDIUM,
+        "hdpi" to DisplayMetrics.DENSITY_HIGH,
+        "xhdpi" to DisplayMetrics.DENSITY_XHIGH,
+        "xxhdpi" to DisplayMetrics.DENSITY_XXHIGH,
+        "xxxhdpi" to DisplayMetrics.DENSITY_XXXHIGH,
     )
 
     fun select(files: List<File>, profile: DeviceProfile): List<File> {

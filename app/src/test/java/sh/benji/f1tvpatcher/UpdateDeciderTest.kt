@@ -14,15 +14,11 @@ import java.io.File
 class UpdateDeciderTest {
     private val release = ReleaseInfo(
         tagName = "v1",
-        title = "F1TV UHD Patched",
-        publishedAt = null,
         asset = ReleaseAsset("f1tv-uhd-patched.apkm", "https://example.invalid/app", 1, null),
     )
 
     private fun downloaded(versionCode: Long, signer: String) = DownloadedApkm(
         release = release,
-        apkmFile = File("app.apkm"),
-        extractedDir = File("extracted"),
         metadata = ApkMetadata(Constants.TARGET_PACKAGE, "1.0", versionCode, signer),
         apkFiles = listOf(File("base.apk")),
     )

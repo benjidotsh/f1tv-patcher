@@ -216,16 +216,16 @@ private fun debugStates(): List<Pair<String, UiState>> {
     val now = System.currentTimeMillis()
     fun ready(status: UpdateStatus) = UiState.Ready(status, DebugMocks.release.asset.size, now)
     return listOf(
-        "CHECKING" to UiState.Busy.checking(),
-        "INSTALLING" to UiState.Busy.installing(),
-        "UPDATE AVAIL" to ready(UpdateStatus.UpdateAvailable(DebugMocks.installed, DebugMocks.release)),
-        "ORIGINAL" to ready(UpdateStatus.OriginalOrUnknownInstalled(DebugMocks.installed, DebugMocks.release)),
+        "CHECKING FOR UPDATES" to UiState.Busy.checking(),
+        "INSTALLING PATCH" to UiState.Busy.installing(),
+        "UPDATE AVAILABLE" to ready(UpdateStatus.UpdateAvailable(DebugMocks.installed, DebugMocks.release)),
+        "UNINSTALL REQUIRED" to ready(UpdateStatus.OriginalOrUnknownInstalled(DebugMocks.installed, DebugMocks.release)),
         "UP TO DATE" to ready(UpdateStatus.PatchedCurrent(DebugMocks.installed, DebugMocks.release)),
-        "NOT INSTALLED" to ready(UpdateStatus.NotInstalled(DebugMocks.release)),
-        "ERROR · FETCH" to UiState.FetchError(
+        "READY TO INSTALL" to ready(UpdateStatus.NotInstalled(DebugMocks.release)),
+        "CONNECTION FAILED" to UiState.FetchError(
             throwable = RuntimeException("Timeout connecting to api.github.com"),
         ),
-        "ERROR · INSTALL" to UiState.InstallError(
+        "INSTALLATION FAILED" to UiState.InstallError(
             throwable = RuntimeException("INSTALL_FAILED_INSUFFICIENT_STORAGE"),
         ),
     )
@@ -387,16 +387,11 @@ private fun formatSize(context: android.content.Context, bytes: Long): String =
 
 private fun lastCheckedRow(epoch: Long): DataRow? {
     if (epoch == 0L) return null
-    val now = System.currentTimeMillis()
-    val formatted = if (now - epoch < DateUtils.MINUTE_IN_MILLIS) {
-        "Just now"
-    } else {
-        DateUtils.getRelativeTimeSpanString(
-            epoch,
-            now,
-            DateUtils.MINUTE_IN_MILLIS,
-            DateUtils.FORMAT_ABBREV_RELATIVE,
-        ).toString()
-    }
+    val formatted = DateUtils.getRelativeTimeSpanString(
+        epoch,
+        System.currentTimeMillis(),
+        DateUtils.MINUTE_IN_MILLIS,
+        DateUtils.FORMAT_ABBREV_RELATIVE,
+    ).toString()
     return DataRow("LAST CHECKED", formatted)
 }
