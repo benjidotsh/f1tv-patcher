@@ -68,8 +68,6 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 val selected = SplitSelector.select(download.apkFiles, DeviceProfile.from(context))
                 InstallCoordinator(context).install(selected)
-            }.onSuccess {
-                refreshFromInstalled()
             }.onFailure { t ->
                 _state.value = UiState.InstallError(t, localIndicator())
             }
@@ -81,6 +79,7 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refreshFromInstalled() {
+        if (checkJob?.isActive == true || installJob?.isActive == true) return
         val download = currentDownload ?: return
         val installed = InstalledAppInspector(context).inspect()
         val status = UpdateDecider.decide(installed, download)

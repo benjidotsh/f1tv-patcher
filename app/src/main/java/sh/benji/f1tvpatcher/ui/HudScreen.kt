@@ -3,13 +3,10 @@ package sh.benji.f1tvpatcher.ui
 import android.content.Context
 import android.text.format.Formatter
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,7 +22,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +36,6 @@ import sh.benji.f1tvpatcher.R
 import sh.benji.f1tvpatcher.data.GithubHttpException
 import sh.benji.f1tvpatcher.domain.DebugMocks
 import sh.benji.f1tvpatcher.domain.InstalledApp
-import sh.benji.f1tvpatcher.domain.ReleaseInfo
 import sh.benji.f1tvpatcher.domain.UpdateStatus
 import sh.benji.f1tvpatcher.ui.components.HudIconButton
 import sh.benji.f1tvpatcher.ui.components.HudKeyButton
@@ -68,17 +63,13 @@ fun HudScreen(
     ) {
         HudTopBar(indicator = state.indicator)
         Hairline()
-        Box(
+        HudStage(
+            state = state,
+            context = context,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-        ) {
-            HudStage(
-                state = state,
-                context = context,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        )
         Hairline()
         HudKeys(
             state = state,

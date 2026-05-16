@@ -25,6 +25,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 import sh.benji.f1tvpatcher.ui.theme.HudPalette
@@ -43,7 +44,8 @@ fun HudKeyButton(
         onClick = onClick,
         modifier = modifier,
         focusRequester = focusRequester,
-        padding = PaddingHV(20.dp, 13.dp),
+        paddingHorizontal = 20.dp,
+        paddingVertical = 13.dp,
     ) {
         BasicText(
             text = label,
@@ -64,7 +66,8 @@ fun HudIconButton(
         primary = false,
         onClick = onClick,
         modifier = modifier,
-        padding = PaddingHV(12.dp, 10.dp),
+        paddingHorizontal = 12.dp,
+        paddingVertical = 10.dp,
     ) {
         Image(
             painter = painterResource(drawableRes),
@@ -75,14 +78,13 @@ fun HudIconButton(
     }
 }
 
-private data class PaddingHV(val horizontal: androidx.compose.ui.unit.Dp, val vertical: androidx.compose.ui.unit.Dp)
-
 @Composable
 private fun HudKeyFrame(
     primary: Boolean,
     onClick: () -> Unit,
     modifier: Modifier,
-    padding: PaddingHV,
+    paddingHorizontal: Dp,
+    paddingVertical: Dp,
     focusRequester: FocusRequester? = null,
     content: @Composable () -> Unit,
 ) {
@@ -109,7 +111,7 @@ private fun HudKeyFrame(
         .clickable(onClick = onClick)
         .background(background)
         .border(BorderStroke(borderWidth, borderColor))
-        .padding(horizontal = padding.horizontal, vertical = padding.vertical)
+        .padding(horizontal = paddingHorizontal, vertical = paddingVertical)
 
     Box(modifier = frame, contentAlignment = Alignment.Center) {
         content()
